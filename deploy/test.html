@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Date Booking System</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #f5f5f5;
+    }
+
+    h1 {
+      margin-top: 20px;
+    }
+
+    #calendar-navigation {
+      margin: 20px;
+    }
+
+    #calendar-navigation select {
+      padding: 10px;
+      font-size: 16px;
+      margin: 0 10px;
+      cursor: pointer;
+    }
+
+    #calendar-container {
+      margin: 20px;
+    }
+
+    #calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 50px);
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+
+    .calendar-day {
+      width: 50px;
+      height: 50px;
+      background-color: #6c757d;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+
+    .calendar-day.selected {
+      background-color: #28a745;
+    }
+
+    .calendar-day.booked {
+      background-color: #dc3545;
+      cursor: not-allowed;
+    }
+
+    .calendar-day.partial {
+      background-color: #ffc107;
+      color: #000;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+
+    button:disabled {
+      background-color: #d6d6d6;
+      cursor: not-allowed;
+    }
+
+    #status-message {
+      margin-top: 15px;
+      font-weight: bold;
+    }
+
+    ul {
+      list-style-type: none;
+      padding: 0;
+    }
+
+    li {
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Event Date Booking</h1>
+
+  <div id="calendar-navigation">
+    <select id="month-selector" onchange="navigateToMonth()"></select>
+    <select id="year-selector" onchange="navigateToYear()"></select>
+  </div>
+
+  <div id="calendar-container">
+    <h3 id="calendar-title">Select a Date to Book</h3>
+    <div id="calendar"></div>
+  </div>
+
+  <p id="status-message"></p>
+
+  <button id="book-button" onclick="bookDate()" disabled>Confirm Booking</button>
+
+  <h3>Booked Dates:</h3>
+  <ul id="booked-dates"></ul>
+
+  <script>
+    let bookedDates = [];
+    let bookingsPerDay = {};
+
+    let currentDate = new Date();
+    const MAX_BOOKINGS_PER_DAY = 20;
+
+    function generateCalendar() {
+      const monthNames = ["January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"];
+      const month = currentDate.getMonth();
+      const year = currentDate.getFullYear();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const firstDayOfWeek = firstDay.getDay();
+      const daysInMonth = lastDay.getDate();
+      const calendar = document.getElementById("calendar");
+      calendar.innerHTML = "";
+
+      // Add day labels (Sun to Sat)
+      const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      weekdays.forEach(day => {
+        const dayLabel = document.createElement('div');
+        dayLabel.textContent = day;
+        dayLabel.style.fontWeight = 'bold';
+        calendar.appendChild(dayLabel);
+      });
+
+      for (let i = 0; i < firstDayOfWeek; i++) {
+        calendar.innerHTML += `<div></div>`;
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        const dayDiv = document.createElement("div");
+        dayDiv.classList.add("calendar-day");
+        dayDiv.textContent = day;
+        dayDiv.dataset.date = date;
+
+        const currentBookings = bookingsPerDay[date] || 0;
+
+        if (currentBookings >= MAX_BOOKINGS_PER_DAY) {
+          dayDiv.classList.add("booked");
+        } else if (currentBookings > 0) {
+          dayDiv.classList.add("partial");
+        }
+
+        dayDiv.title = `${MAX_BOOKINGS_PER_DAY - currentBookings} slots available`;
+
+        dayDiv.addEventListener("click", () => selectDate(date, dayDiv));
+        calendar.appendChild(dayDiv);
+      }
+
+      document.getElementById("calendar-title").textContent = `${monthNames[month]} ${year}`;
+      updateMonthYearSelectors();
+    }
+
+    function selectDate(date, dayDiv) {
+      const statusMessage = document.getElementById("status-message");
+      const bookButton = document.getElementById("book-button");
+      const bookings = bookingsPerDay[date] || 0;
+
+      if (bookings >= MAX_BOOKINGS_PER_DAY) {
+        statusMessage.textContent = `Sorry, ${date} is fully booked. Please select another date.`;
+        bookButton.disabled = true;
+      } else {
+        document.querySelectorAll(".calendar-day").forEach(day => day.classList.remove("selected"));
+        dayDiv.classList.add("selected");
+        statusMessage.textContent = `You selected ${date}. ${MAX_BOOKINGS_PER_DAY - bookings} slots remaining. Click "Confirm Booking" to book.`;
+        bookButton.disabled = false;
+      }
+    }
+
+    function bookDate() {
+      const selected = document.querySelector(".calendar-day.selected");
+      if (!selected) return;
+
+      const date = selected.dataset.date;
+      const statusMessage = document.getElementById("status-message");
+      const bookButton = document.getElementById("book-button");
+
+      if (!bookingsPerDay[date]) bookingsPerDay[date] = 0;
+
+      if (bookingsPerDay[date] < MAX_BOOKINGS_PER_DAY) {
+        bookingsPerDay[date]++;
+        if (!bookedDates.includes(date)) {
+          bookedDates.push(date);
+        }
+
+        statusMessage.textContent = `Successfully booked ${date}! (${bookingsPerDay[date]}/${MAX_BOOKINGS_PER_DAY})`;
+        bookButton.disabled = true;
+
+        generateCalendar();
+        updateBookedDatesList();
+      } else {
+        statusMessage.textContent = `Sorry, ${date} has reached the booking limit.`;
+      }
+    }
+
+    function updateBookedDatesList() {
+      const bookedDatesList = document.getElementById("booked-dates");
+      bookedDatesList.innerHTML = "";
+
+      const uniqueDates = [...new Set(bookedDates)];
+
+      uniqueDates.forEach(date => {
+        const count = bookingsPerDay[date] || 0;
+        const li = document.createElement("li");
+        li.textContent = `${date} - ${count}/${MAX_BOOKINGS_PER_DAY} booked`;
+        bookedDatesList.appendChild(li);
+      });
+    }
+
+    function navigateToMonth() {
+      const month = document.getElementById("month-selector").value;
+      const year = document.getElementById("year-selector").value;
+      currentDate.setMonth(parseInt(month));
+      currentDate.setFullYear(parseInt(year));
+      generateCalendar();
+    }
+
+    function navigateToYear() {
+      navigateToMonth(); // combined handler
+    }
+
+    function updateMonthYearSelectors() {
+      const monthSelector = document.getElementById("month-selector");
+      const yearSelector = document.getElementById("year-selector");
+
+      const currentMonth = currentDate.getMonth();
+      const currentYear = currentDate.getFullYear();
+
+      monthSelector.innerHTML = '';
+      const monthNames = ["January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"];
+      monthNames.forEach((name, index) => {
+        const option = document.createElement("option");
+        option.value = index;
+        option.textContent = name;
+        if (index === currentMonth) option.selected = true;
+        monthSelector.appendChild(option);
+      });
+
+      yearSelector.innerHTML = '';
+      for (let y = currentYear; y <= currentYear + 10; y++) {
+        const option = document.createElement("option");
+        option.value = y;
+        option.textContent = y;
+        if (y === currentYear) option.selected = true;
+        yearSelector.appendChild(option);
+      }
+    }
+
+    generateCalendar();
+  </script>
+</body>
+</html>
